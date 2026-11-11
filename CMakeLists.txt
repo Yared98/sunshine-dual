@@ -25,16 +25,25 @@ if (WIN32 AND SD_BUILD_WIN32)
   target_include_directories(sd_session PUBLIC ${CMAKE_SOURCE_DIR}/include)
   target_link_libraries(sd_session PUBLIC wtsapi32 netapi32 userenv advapi32)
 
-  # The patcher pulls in Zydis (via vcpkg) and the final exe; built on request.
-  option(SD_BUILD_PATCHER "Build sd_patch + orchestrator exe (needs Zydis)" OFF)
+  # The patcher + orchestrator CLI. Built on request. Zydis (optional, for
+  # disassembly-level validation) is added only if found, so the default build
+  # needs no vcpkg.
+  option(SD_BUILD_PATCHER "Build sd_patch + orchestrator exe" OFF)
   if (SD_BUILD_PATCHER)
-    find_package(Zydis CONFIG REQUIRED)
-
     add_library(sd_patch STATIC src/patcher.cpp)
     target_include_directories(sd_patch PUBLIC ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(sd_patch PUBLIC sd_scan sd_proc Zydis::Zydis)
+    target_link_libraries(sd_patch PUBLIC sd_scan sd_proc)
+
+    find_package(Zydis CONFIG QUIET)
+    if (Zydis_FOUND)
+      target_link_libraries(sd_patch PUBLIC Zydis::Zydis)
+      target_compile_definitions(sd_patch PUBLIC SD_HAVE_ZYDIS=1)
+    endif()
 
     add_executable(sunshine_dual src/main.cpp)
     target_link_libraries(sunshine_dual PRIVATE sd_patch sd_session)
+    # MinGW needs -municode so wmain() is used as the entry point.
+    target_compile_options(sunshine_dual PRIVATE -municode)
+    target_link_options(sunshine_dual PRIVATE -municode)
   endif()
 endif()
