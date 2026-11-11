@@ -36,17 +36,19 @@ aqui — o chamador passa o `HANDLE process` já aberto (exceto onde a função 
 recebe `pid`, aí use o snapshot do Toolhelp que não precisa de handle).
 
 ## Verificação
+Toolchain da máquina: **MinGW-w64 g++ 16 + Ninja** (não há MSVC/vcpkg). O alvo
+`sd_proc` não depende de Zydis. Use:
 ```powershell
-cmake -S . -B build -DSD_BUILD_WIN32=ON ^
-  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
-cmake --build build --target sd_proc --config Debug
+cmake -S . -B build-win -G Ninja -DCMAKE_CXX_COMPILER=g++ -DSD_BUILD_WIN32=ON
+cmake --build build-win --target sd_proc
 ```
-Deve **compilar sem erros nem warnings** o alvo `sd_proc`. Não há teste de
-runtime (exige host real); a correção lógica será revisada pelo mantenedor.
-Se não houver vcpkg/Zydis disponível, pelo menos garanta que `src/procmem.cpp`
-compila isolado com `cl /c /std:c++20 /I include src/procmem.cpp`.
+Deve **compilar sem erros** o alvo `sd_proc`. Não há teste de runtime (exige
+host real); a correção lógica será revisada pelo mantenedor. Atenção a
+diferenças de headers do MinGW (ex.: alguns símbolos exigem `#include <tlhelp32.h>`
+e `#include <winsvc.h>` explícitos além de `<windows.h>`).
 
 ## Regras
-- Um único commit: `task-02: implement sd::proc remote memory`.
+- Ao final: `git add src/procmem.cpp` e **um único**
+  `git commit -m "task-02: implement sd::proc remote memory"`. Não use `git add -A`.
 - NÃO rode git destrutivo (reset/rebase/checkout de branch/merge/push). NÃO saia da pasta.
 - Relatório: hash do commit + saída da compilação.

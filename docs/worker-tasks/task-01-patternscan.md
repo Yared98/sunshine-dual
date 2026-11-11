@@ -28,9 +28,10 @@ arquivo. Não mude as assinaturas públicas das funções.
   sobreposição** (avança de 1 em 1).
 
 ## Verificação (rode e cole a saída no relatório)
+Toolchain da máquina: **MinGW-w64 g++ 16 + Ninja** (não há MSVC). Use:
 ```powershell
-cmake -S . -B build-core -DSD_BUILD_WIN32=OFF
-cmake --build build-core --config Debug
+cmake -S . -B build-core -G Ninja -DCMAKE_CXX_COMPILER=g++ -DSD_BUILD_WIN32=OFF
+cmake --build build-core
 ctest --test-dir build-core --output-on-failure
 ```
 Os testes em `tests/scan_tests.cpp` devem cobrir, no mínimo:
@@ -40,7 +41,8 @@ inválida (checar que lança). Use o harness em `tests/test_harness.h`
 (`SD_CHECK`, `SD_CHECK_EQ`, `SD_TEST_SUMMARY`). `ctest` deve passar 100%.
 
 ## Regras
-- Um único `git commit` ao final, mensagem `task-01: implement sd::scan pattern scanner`.
+- Ao final: `git add src/signature.cpp tests/scan_tests.cpp` e **um único**
+  `git commit -m "task-01: implement sd::scan pattern scanner"`. Não use `git add -A`.
 - NÃO rode `git reset`, `git rebase`, `git checkout <branch>`, `git merge`, `git push`.
 - NÃO saia da pasta do worktree. NÃO instale nada global.
 - Relatório curto: hash do commit + saída do `ctest`.

@@ -33,16 +33,18 @@ const (a API pode escrever no buffer) — copie para `std::vector<wchar_t>`
 terminado em nul.
 
 ## Verificação
+Toolchain da máquina: **MinGW-w64 g++ 16 + Ninja** (não há MSVC/vcpkg). Use:
 ```powershell
-cmake -S . -B build -DSD_BUILD_WIN32=ON ^
-  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
-cmake --build build --target sd_session --config Debug
+cmake -S . -B build-win -G Ninja -DCMAKE_CXX_COMPILER=g++ -DSD_BUILD_WIN32=ON
+cmake --build build-win --target sd_session
 ```
 Deve **compilar sem erros** o alvo `sd_session`. Sem teste de runtime (exige
-SYSTEM + host real); correção revisada pelo mantenedor. Fallback de compilação
-isolada: `cl /c /std:c++20 /I include src/session.cpp`.
+SYSTEM + host real); correção revisada pelo mantenedor. Atenção a headers do
+MinGW: inclua explicitamente `<wtsapi32.h>`, `<lm.h>` (NetUserAdd/NetUserGetInfo),
+`<userenv.h>` além de `<windows.h>`.
 
 ## Regras
-- Um único commit: `task-03: implement sd::session lifecycle`.
+- Ao final: `git add src/session.cpp` e **um único**
+  `git commit -m "task-03: implement sd::session lifecycle"`. Não use `git add -A`.
 - NÃO rode git destrutivo (reset/rebase/checkout de branch/merge/push). NÃO saia da pasta.
 - Relatório: hash do commit + saída da compilação.
