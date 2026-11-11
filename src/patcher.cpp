@@ -61,26 +61,78 @@ std::optional<Hit> locate_unique(const std::vector<uint8_t>& buf, std::string& w
     return hit;
 }
 
-std::string report(const PatchSpec& ps, uintptr_t addr,
-                   const std::vector<uint8_t>& original,
-                   const char* verb) {
-    std::string m = std::string(verb) + " @ 0x";
+std::string report(const PatchSpec& ps, uintptr_t site,
+                   const std::vector<uint8_t>& original, const char* verb) {
     char a[20];
-    std::snprintf(a, sizeof(a), "%llX", static_cast<unsigned long long>(addr));
-    m += a;
+    std::snprintf(a, sizeof(a), "%llX", static_cast<unsigned long long>(site));
+    std::string m = std::string(verb) + " @ 0x" + a;
     m += "\n  spec     : " + ps.note + (ps.verified ? " [VERIFIED]" : " [UNVERIFIED]");
     m += "\n  original : " + hex(original.data(), original.size());
     m += "\n  proposed : " + hex(ps.patch.data(), ps.patch.size());
     return m;
 }
 
+// Common core: given a buffer that mirrors the image, locate the unique site,
+// verify the expected bytes, and fill `r` with the site bytes. Returns the
+// (spec index, write-site offset within buf) when the site is good to go.
+std::optional<std::pair<size_t, size_t>> prepare(const std::vector<uint8_t>& buf,
+                                                 uintptr_t base, Result& r) {
+    std::string why;
+    auto hit = locate_unique(buf, why);
+    if (!hit) {
+        r.message = why;
+        return std::nullopt;
+    }
+
+    const PatchSpec& ps = patch_specs()[hit->spec];
+    const size_t site = hit->off + ps.patch_offset;
+    if (site + ps.expect.size() > buf.size()) {
+        r.message = "patch site runs past end of image (corrupt match)";
+        return std::nullopt;
+    }
+
+    r.spec_used = ps.note;
+    r.address = base + site;
+    r.original.assign(buf.begin() + site, buf.begin() + site + ps.expect.size());
+    r.proposed = ps.patch;
+
+    // The on-site bytes must equal what the spec expects, or we refuse.
+    if (r.original != ps.expect) {
+        r.message = report(ps, base + site, r.original,
+                           "REFUSING: on-site bytes != expected");
+        return std::nullopt;
+    }
+
+    r.found = true;
+    return std::make_pair(hit->spec, site);
+}
+
 } // namespace
 
 const std::vector<PatchSpec>& patch_specs() {
-    // Intentionally empty until a signature is derived from the PDB-guided
-    // disassembly of the exact termsrv.dll build. Keeping this empty guarantees
-    // enable_multisession() cannot write anything by accident.
-    static const std::vector<PatchSpec> specs{};
+    static const std::vector<PatchSpec> specs = {
+        // termsrv.dll 10.0.26100.8875 (Win11 25H2) — CDefPolicy::Query.
+        // The function compares [this+0x63c] (max) with [this+0x638] (in-use)
+        // and returns error 0xD00A0013 when they are equal (at the limit).
+        //   mov r8d,[rdi+0x63c]  44 8B 87 3C 06 00 00
+        //   mov r9d,[rdi+0x638]  44 8B 8F 38 06 00 00
+        //   cmp r8d,r9d          45 3B C1
+        //   jne success          75 14
+        // Flipping the jne (0x75) to jmp (0xEB) forces the success path, so the
+        // session-limit check is always satisfied. Member displacements are
+        // wildcarded so the signature survives minor build changes.
+        PatchSpec{
+            scan::parse_ida(
+                "44 8B 87 ?? ?? 00 00 44 8B 8F ?? ?? 00 00 45 3B C1 75",
+                "CDefPolicy::Query limit gate"),
+            /*patch_offset=*/17,
+            /*expect=*/{0x75},
+            /*patch=*/ {0xEB},
+            "termsrv 10.0.26100.8875 CDefPolicy::Query: jne->jmp so the "
+            "InUse==Max session-limit check always takes the success path",
+            /*verified=*/true,
+        },
+    };
     return specs;
 }
 
@@ -119,45 +171,37 @@ Result enable_multisession(bool apply) {
     }
     buf.resize(got);
 
-    std::string why;
-    auto hit = locate_unique(buf, why);
-    if (!hit) {
+    auto target = prepare(buf, mod->base, r);
+    if (!target) {
         CloseHandle(h);
-        r.message = why;
         return r;
     }
-
-    const PatchSpec& ps = patch_specs()[hit->spec];
-    const uintptr_t addr = mod->base + hit->off;
-    r.found = true;
-    r.spec_used = ps.note;
-    r.address = addr;
-    r.original.assign(buf.begin() + hit->off, buf.begin() + hit->off + ps.sig.size());
-    r.proposed = ps.patch;
+    const PatchSpec& ps = patch_specs()[target->first];
+    const uintptr_t site_va = mod->base + target->second;
 
     if (!apply) {
-        r.message = report(ps, addr, r.original, "DRY-RUN: would patch");
+        r.message = report(ps, site_va, r.original, "DRY-RUN: would patch");
         CloseHandle(h);
         return r;
     }
 
     if (!ps.verified) {
-        r.message = report(ps, addr, r.original,
+        r.message = report(ps, site_va, r.original,
                            "REFUSING to write (spec not verified for this build)");
         CloseHandle(h);
         return r;
     }
 
-    auto rec = proc::apply_patch(h, addr, ps.patch.data(), ps.patch.size());
+    auto rec = proc::apply_patch(h, site_va, ps.patch.data(), ps.patch.size());
     if (!rec) {
-        r.message = report(ps, addr, r.original, "apply_patch FAILED");
+        r.message = report(ps, site_va, r.original, "apply_patch FAILED");
         CloseHandle(h);
         return r;
     }
 
     r.applied = true;
     r.rollback.push_back(*rec);
-    r.message = report(ps, addr, r.original, "PATCHED");
+    r.message = report(ps, site_va, r.original, "PATCHED");
     CloseHandle(h);
     return r;
 }
@@ -178,20 +222,14 @@ Result scan_image_file(const std::wstring& dll_path) {
         return r;
     }
 
-    std::string why;
-    auto hit = locate_unique(buf, why);
-    if (!hit) {
-        r.message = why;
+    // base 0: r.address reports the file offset of the write site.
+    auto target = prepare(buf, 0, r);
+    if (!target) {
         return r;
     }
-
-    const PatchSpec& ps = patch_specs()[hit->spec];
-    r.found = true;
-    r.spec_used = ps.note;
-    r.address = hit->off;  // file offset here, not a VA
-    r.original.assign(buf.begin() + hit->off, buf.begin() + hit->off + ps.sig.size());
-    r.proposed = ps.patch;
-    r.message = report(ps, hit->off, r.original, "FILE SCAN: unique match at file offset");
+    const PatchSpec& ps = patch_specs()[target->first];
+    r.message = report(ps, target->second, r.original,
+                       "FILE SCAN: unique match, write site at file offset");
     return r;
 }
 
