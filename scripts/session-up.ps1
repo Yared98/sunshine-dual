@@ -1,0 +1,90 @@
+<#
+    session-up.ps1 -- establish the headless SwitchGamer second session.
+
+    The termsrv patch lets a second interactive session coexist with the
+    console. This logs SwitchGamer in over an RDP loopback (127.0.0.2) so that
+    session exists and has a framebuffer (RDP provides one) for Apollo to
+    capture -- without occupying the physical display. Run as the console user
+    (no elevation needed to drive mstsc).
+
+    First run: pass -Password once to store the credential in the Windows vault
+    (DPAPI-protected, per-user). After that, no password is needed.
+
+      .\session-up.ps1 -Password '<SwitchGamer password>'
+      .\session-up.ps1            # uses the stored credential
+
+    Returns exit 0 with the session id once the session is Active.
+#>
+param(
+    [string]$User       = 'SwitchGamer',
+    [string]$RdpHost    = '127.0.0.2',
+    [string]$Password,
+    [int]   $TimeoutSec = 45,
+    [int]   $Width      = 1280,
+    [int]   $Height     = 720
+)
+$ErrorActionPreference = 'Stop'
+
+function Get-UserSession([string]$u) {
+    $out = qwinsta 2>$null
+    foreach ($line in $out) {
+        if ($line -match "\b$([regex]::Escape($u))\b" -and
+            $line -match '(\d+)\s+(Active|Disc|Disconnected|Conn|ConnQ|Shadow|Idle|Down)') {
+            $st = $Matches[2]; if ($st -eq 'Disc') { $st = 'Disconnected' }
+            return [pscustomobject]@{ Id = [int]$Matches[1]; State = $st }
+        }
+    }
+    return $null
+}
+
+# Already Active?
+$s = Get-UserSession $User
+if ($s -and $s.State -eq 'Active') {
+    Write-Host "[up] $User already Active in session $($s.Id)."
+    exit 0
+}
+
+# Credential: store it once if provided, then require one to exist.
+$target = "TERMSRV/$RdpHost"
+if ($Password) {
+    cmdkey /generic:$target /user:$User /pass:$Password | Out-Null
+    Write-Host "[up] stored credential for $target in the vault."
+}
+$hasCred = cmdkey /list:$target 2>$null | Select-String -SimpleMatch $User
+if (-not $hasCred) {
+    throw "no stored credential for $target -- run once with -Password '<pw>'."
+}
+
+# Minimal loopback .rdp (administrative session, no NLA prompt).
+$rdp = Join-Path $env:TEMP 'sd-loopback.rdp'
+# authentication level 0 = connect without warning if server auth "fails";
+# disabling CredSSP (NLA is already off) avoids the self-signed cert prompt for
+# the loopback so the connect is unattended. If a one-time trust dialog still
+# appears, tick "Don't ask me again for connections to this computer".
+@"
+full address:s:$RdpHost
+username:s:$User
+administrative session:i:1
+prompt for credentials:i:0
+screen mode id:i:1
+desktopwidth:i:$Width
+desktopheight:i:$Height
+authentication level:i:0
+enablecredsspsupport:i:0
+redirectclipboard:i:0
+audiomode:i:2
+"@ | Set-Content -Path $rdp -Encoding ASCII
+
+Write-Host "[up] connecting $User over $RdpHost ..."
+Start-Process mstsc -ArgumentList "`"$rdp`"" | Out-Null
+
+$deadline = (Get-Date).AddSeconds($TimeoutSec)
+while ((Get-Date) -lt $deadline) {
+    Start-Sleep -Milliseconds 1500
+    $s = Get-UserSession $User
+    if ($s -and $s.State -eq 'Active') {
+        Write-Host "[up] $User Active in session $($s.Id)."
+        exit 0
+    }
+}
+throw "timeout: $User session did not become Active within $TimeoutSec s."
