@@ -1,5 +1,5 @@
 <#
-    01-swap-sunshine-to-apollo.ps1 — stop the existing Sunshine service and set
+    01-swap-sunshine-to-apollo.ps1 -- stop the existing Sunshine service and set
     it to Manual so Apollo (same fork, same ports 47984/47989/48010/47990) can
     take over. NON-DESTRUCTIVE and reversible: nothing is uninstalled, Sunshine's
     config and pairings stay on disk. Run rollback.ps1 to restore Sunshine.
@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Continue'
 
 $svc = Get-Service -Name 'SunshineService' -ErrorAction SilentlyContinue
 if (-not $svc) {
-    Write-Host '[swap] SunshineService not present — nothing to stop.'
+    Write-Host '[swap] SunshineService not present -- nothing to stop.'
     return
 }
 

@@ -1,12 +1,12 @@
 <#
-    rollback.ps1 — undo the setup. Self-elevates (single UAC). Reverses
+    rollback.ps1 -- undo the setup. Self-elevates (single UAC). Reverses
     everything NON-DESTRUCTIVELY:
       - unregister the boot-time patch task
       - restore SunshineService to Automatic and start it
     It does NOT uninstall Apollo (use its own uninstaller in
     "Apps & features" if you want that) and does NOT touch data.
 
-    The live in-memory termsrv patch is not reverted here — a reboot clears it,
+    The live in-memory termsrv patch is not reverted here -- a reboot clears it,
     or restart the TermService.
 #>
 param([switch]$Elevated)

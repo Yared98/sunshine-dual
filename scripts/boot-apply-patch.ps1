@@ -1,5 +1,5 @@
 <#
-    boot-apply-patch.ps1 — run at boot by the "sunshine-dual multiseat patch"
+    boot-apply-patch.ps1 -- run at boot by the "sunshine-dual multiseat patch"
     scheduled task (as SYSTEM). Waits for TermService to be running, then applies
     the termsrv single-session patch. Idempotent: if TermService is already
     patched, sunshine_dual reports ALREADY PATCHED and exits 0.

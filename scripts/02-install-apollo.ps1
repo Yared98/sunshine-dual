@@ -1,5 +1,5 @@
 <#
-    02-install-apollo.ps1 — run the Apollo installer (ClassicOldSong/Apollo).
+    02-install-apollo.ps1 -- run the Apollo installer (ClassicOldSong/Apollo).
     Apollo bundles the IddCx virtual display driver + ViGEmBus, which is why we
     use it instead of stock Sunshine for the headless second session.
 
@@ -23,7 +23,7 @@ $staged   = Join-Path $repoRoot ".staging-apollo\Apollo-$version.exe"
 if (-not $Installer) { $Installer = $staged }
 
 if (-not (Test-Path $Installer)) {
-    Write-Host "[apollo] installer not found at $Installer — downloading v$version from GitHub..."
+    Write-Host "[apollo] installer not found at $Installer -- downloading v$version from GitHub..."
     New-Item -ItemType Directory -Force -Path (Split-Path $Installer) | Out-Null
     Invoke-WebRequest -Uri $url -OutFile $Installer -UseBasicParsing
 }
@@ -34,7 +34,7 @@ Write-Host "[apollo] sha256   : $((Get-FileHash $Installer -Algorithm SHA256).Ha
 $sig = Get-AuthenticodeSignature $Installer
 Write-Host "[apollo] signature: $($sig.Status) (unsigned is expected for Apollo)"
 
-Write-Host '[apollo] launching installer — complete the wizard (defaults are fine).'
+Write-Host '[apollo] launching installer -- complete the wizard (defaults are fine).'
 $p = Start-Process -FilePath $Installer -PassThru -Wait
 Write-Host "[apollo] installer exit code: $($p.ExitCode)"
 
@@ -43,7 +43,7 @@ $apolloSvc = Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name 
 if ($apolloSvc) {
     Write-Host "[apollo] service installed: $($apolloSvc.Name) ($($apolloSvc.Status))"
 } else {
-    Write-Host '[apollo] WARNING: no Apollo service detected yet — verify the install completed.'
+    Write-Host '[apollo] WARNING: no Apollo service detected yet -- verify the install completed.'
 }
 $vdd = Get-PnpDevice -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -match 'Idd|Virtual Display|Apollo' }
 if ($vdd) { Write-Host "[apollo] virtual display device(s): $($vdd.FriendlyName -join ', ')" }

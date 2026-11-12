@@ -1,5 +1,5 @@
 <#
-    00-finish-setup.ps1 — one-click finisher. Self-elevates (single UAC), then
+    00-finish-setup.ps1 -- one-click finisher. Self-elevates (single UAC), then
     runs the whole elevated setup in order and applies the patch now:
 
       1) swap Sunshine service to Manual (reversible)
@@ -41,7 +41,7 @@ try {
 
     $apolloSvc = Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'Apollo' }
     if (-not $apolloSvc) {
-        Write-Host "`nApollo service not detected — the installer may have been cancelled."
+        Write-Host "`nApollo service not detected -- the installer may have been cancelled."
         Write-Host "Leaving Sunshine untouched. Re-run after completing the Apollo install."
         return
     }
@@ -65,7 +65,7 @@ try {
         & $exe patch
         Write-Host "apply exit=$LASTEXITCODE"
     } else {
-        Write-Host "WARNING: $exe not found — build first, then rerun."
+        Write-Host "WARNING: $exe not found -- build first, then rerun."
     }
 
     Write-Host "`nDone. Next (manual, needs your son's device):"

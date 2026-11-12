@@ -1,5 +1,5 @@
 <#
-    03-register-boot-patch.ps1 — install the patcher to a stable location and
+    03-register-boot-patch.ps1 -- install the patcher to a stable location and
     register a boot-time scheduled task that re-applies the termsrv
     single-session patch on every startup (the in-memory patch does not survive
     a reboot). Requires elevation.
@@ -23,7 +23,7 @@ $logDir     = 'C:\ProgramData\sunshine-dual'
 $repoRoot   = Split-Path $PSScriptRoot -Parent
 
 if (-not $BuildExe) { $BuildExe = Join-Path $repoRoot 'build-win\sunshine_dual.exe' }
-if (-not (Test-Path $BuildExe)) { throw "built exe not found at $BuildExe — build it first (cmake --build build-win --target sunshine_dual)" }
+if (-not (Test-Path $BuildExe)) { throw "built exe not found at $BuildExe -- build it first (cmake --build build-win --target sunshine_dual)" }
 
 New-Item -ItemType Directory -Force -Path $installDir | Out-Null
 New-Item -ItemType Directory -Force -Path $logDir     | Out-Null
@@ -45,7 +45,7 @@ Write-Host "[boot] registered scheduled task '$taskName' (SYSTEM, at startup)."
 
 # Validate immediately: run it once and show the log tail. Because TermService is
 # already up, it applies now (or reports ALREADY PATCHED if this session is
-# already patched) — either way exit 0.
+# already patched) -- either way exit 0.
 Write-Host '[boot] running the task once to validate...'
 Start-ScheduledTask -TaskName $taskName
 Start-Sleep -Seconds 8
@@ -54,5 +54,5 @@ if (Test-Path $log) {
     Write-Host '[boot] --- boot-patch.log (tail) ---'
     Get-Content $log -Tail 8 | ForEach-Object { Write-Host "    $_" }
 } else {
-    Write-Host '[boot] WARNING: no log produced yet — check Task Scheduler history.'
+    Write-Host '[boot] WARNING: no log produced yet -- check Task Scheduler history.'
 }
