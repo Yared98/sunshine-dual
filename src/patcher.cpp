@@ -96,6 +96,15 @@ std::optional<std::pair<size_t, size_t>> prepare(const std::vector<uint8_t>& buf
     r.original.assign(buf.begin() + site, buf.begin() + site + ps.expect.size());
     r.proposed = ps.patch;
 
+    // Idempotent: if the site already holds the patched bytes, this is a no-op
+    // success — important for boot re-application, which may run against a
+    // TermService that is already patched (e.g. patch run twice in one boot).
+    if (r.original == ps.patch) {
+        r.already_applied = true;
+        r.found = true;
+        return std::make_pair(hit->spec, site);
+    }
+
     // The on-site bytes must equal what the spec expects, or we refuse.
     if (r.original != ps.expect) {
         r.message = report(ps, base + site, r.original,
@@ -122,8 +131,12 @@ const std::vector<PatchSpec>& patch_specs() {
         // session-limit check is always satisfied. Member displacements are
         // wildcarded so the signature survives minor build changes.
         PatchSpec{
+            // NB: the signature stops at `cmp r8d,r9d` (…45 3B C1) and does NOT
+            // include the jne byte we flip. That keeps the pattern matching both
+            // before AND after patching, so boot re-application can detect an
+            // already-patched image instead of reporting "no match".
             scan::parse_ida(
-                "44 8B 87 ?? ?? 00 00 44 8B 8F ?? ?? 00 00 45 3B C1 75",
+                "44 8B 87 ?? ?? 00 00 44 8B 8F ?? ?? 00 00 45 3B C1",
                 "CDefPolicy::Query limit gate"),
             /*patch_offset=*/17,
             /*expect=*/{0x75},
@@ -182,6 +195,13 @@ Result enable_multisession(bool apply) {
     }
     const PatchSpec& ps = patch_specs()[target->first];
     const uintptr_t site_va = mod->base + target->second;
+
+    if (r.already_applied) {
+        r.message = report(ps, site_va, r.original,
+                           apply ? "ALREADY PATCHED (no-op)" : "ALREADY PATCHED");
+        CloseHandle(h);
+        return r;
+    }
 
     if (!apply) {
         r.message = report(ps, site_va, r.original, "DRY-RUN: would patch");

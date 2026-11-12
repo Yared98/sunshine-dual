@@ -32,7 +32,7 @@ int wmain(int argc, wchar_t** argv) {
     if (cmd == L"patch") {
         auto r = sd::patch::enable_multisession(/*apply=*/true);
         std::printf("%s\n", r.message.c_str());
-        return r.applied ? 0 : 1;
+        return (r.applied || r.already_applied) ? 0 : 1;
     }
     return usage();
 }

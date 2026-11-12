@@ -29,6 +29,7 @@ struct PatchSpec {
 struct Result {
     bool                           found    = false;  // exactly one match located
     bool                           applied  = false;  // bytes were written
+    bool                           already_applied = false;  // site already held the patch (no-op)
     std::string                    spec_used;
     uintptr_t                      address  = 0;       // absolute VA (or file off) of the write site
     std::vector<uint8_t>           original;           // bytes currently at the site
