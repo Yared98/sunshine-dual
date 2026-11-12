@@ -34,7 +34,21 @@ if (Get-ScheduledTask -TaskName 'apollo-switchgamer' -ErrorAction SilentlyContin
     Write-Host "[s2] removed old scheduled task 'apollo-switchgamer'."
 }
 
-if (-not (Test-Path $src)) { throw "launcher not found at $src" }
+# Create the launcher if it is missing (working dir MUST be the Apollo install
+# dir or sunshine.exe can't find assets\shaders and crashes with 0xC0000005).
+if (-not (Test-Path $src)) {
+    New-Item -ItemType Directory -Force -Path (Split-Path $src) | Out-Null
+    @"
+@echo off
+cd /d "C:\Program Files\Apollo"
+start "" "sunshine.exe" "C:\Users\Public\apollo-s2\sunshine.conf"
+"@ | Set-Content -Path $src -Encoding ASCII
+    Write-Host "[s2] created launcher $src"
+}
+if (-not (Test-Path 'C:\Users\Public\apollo-s2\sunshine.conf')) {
+    Write-Host "[s2] WARNING: C:\Users\Public\apollo-s2\sunshine.conf not found."
+    Write-Host "     Create the second-instance config first (port 48989, own file_apps/state/cert)."
+}
 if (-not (Test-Path "C:\Users\$user")) { throw "profile C:\Users\$user not found (log $user in once first)" }
 New-Item -ItemType Directory -Force -Path $startup | Out-Null
 Copy-Item $src (Join-Path $startup 'start-apollo.cmd') -Force

@@ -60,19 +60,40 @@ sunshine_dual up <apollo.exe>     # launch Apollo in the SwitchGamer session (SY
 sunshine_dual down                # log the SwitchGamer session off (SYSTEM)
 ```
 
-`up`/`down` use `CreateProcessAsUser` into the target session and require
-SYSTEM/SeTcbPrivilege, so run them from the SYSTEM context (e.g. a scheduled
-task) — the same way the boot patch task runs.
+### Option B — the son streams a truly separate Windows session (WORKING)
 
-**Still open / needs a live test with the handheld:**
+A single Apollo streams the service/console session, and its "Virtual Display"
+only adds an isolated *screen* inside that session (keyboard/mouse still shared).
+For full isolation the son needs his own Windows session, so a **second Apollo
+instance runs inside the `SwitchGamer` session**:
 
-- The `SwitchGamer` session must be *logged in headless* before `up` can launch
-  Apollo into it. Tonight's proof used an interactive `mstsc /v:127.0.0.2`
-  loopback; the headless-login automation (programmatic RDP/WTS logon with the
-  virtual display) is the next piece to build and must be tested against a real
-  Moonlight client.
-- Gamepad isolation (ViGEmBus pads are system-global) should be verified once
-  two sessions stream at once.
+- `C:\Users\Public\apollo-s2\sunshine.conf` — its own config: `port = 48989`
+  (web UI 48990), own `file_apps` / `file_state` / `pkey` / `cert`.
+- `C:\Users\Public\apollo-s2\start-apollo.cmd` — `cd /d "C:\Program Files\Apollo"`
+  then starts `sunshine.exe` with that config. The working dir **must** be the
+  Apollo install dir or it can't find `assets\shaders` and crashes (0xC0000005).
+- **`setup-session2.ps1`** installs that launcher in the SwitchGamer **Startup
+  folder** (and removes any old scheduled task). It must start from the normal
+  login shell, not a scheduled task: a task-launched process gets a token that
+  can't spawn games (`CreateProcess` error 5).
+
+Flow: `setup-session2.ps1` (once) → `session-up.ps1` logs SwitchGamer in over the
+RDP loopback → Startup launches Apollo-2 → the son pairs **Artemis** (the Apollo
+client, not stock Moonlight) to `host:48989` and streams his own session while
+you keep working on the console.
+
+**Caveats learned the hard way:**
+
+- **Do not minimize or close the mstsc window** while streaming — an RDP session
+  drops its display surface when the client isn't shown, which breaks Apollo
+  capture (`No displays found` / `DuplicateOutput 0x80070005`). `session-up -Hide`
+  moves it off-screen instead (experimental); otherwise leave it visible.
+- NVENC only appears when the display is properly attached (window connected);
+  with the display dropped it falls back to software (libx264).
+- `SwitchGamer` is a fresh user: Steam login, emulator configs and saves are
+  per-user (the Steam login screen in his session is expected).
+- Gamepad isolation (ViGEmBus pads are system-global) still to verify with two
+  concurrent streams.
 
 ## Credentials
 
