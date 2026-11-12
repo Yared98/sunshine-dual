@@ -1,5 +1,6 @@
 build*/
 /out/
+/.staging-apollo/
 *.o
 /.vs/
 /vcpkg_installed/
