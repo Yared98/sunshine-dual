@@ -19,6 +19,8 @@ param(
     [string]$User       = 'SwitchGamer',
     [string]$RdpHost    = '127.0.0.2',
     [string]$Password,
+    [switch]$Hide,                  # move the mstsc window off-screen (default: leave it visible)
+    [string]$Shell,                 # optional: run this program as the session shell
     [int]   $TimeoutSec = 45,
     [int]   $Width      = 1280,
     [int]   $Height     = 720
@@ -61,7 +63,7 @@ $rdp = Join-Path $env:TEMP 'sd-loopback.rdp'
 # disabling CredSSP (NLA is already off) avoids the self-signed cert prompt for
 # the loopback so the connect is unattended. If a one-time trust dialog still
 # appears, tick "Don't ask me again for connections to this computer".
-@"
+$rdpText = @"
 full address:s:$RdpHost
 username:s:$User
 administrative session:i:1
@@ -70,10 +72,18 @@ screen mode id:i:1
 desktopwidth:i:$Width
 desktopheight:i:$Height
 authentication level:i:0
-enablecredsspsupport:i:0
 redirectclipboard:i:0
+redirectprinters:i:0
+redirectsmartcards:i:0
+redirectcomports:i:0
+redirectposdevices:i:0
+redirectwebauthn:i:0
+devicestoredirect:s:
+drivestoredirect:s:
 audiomode:i:2
-"@ | Set-Content -Path $rdp -Encoding ASCII
+"@
+if ($Shell) { $rdpText += "`r`nalternate shell:s:$Shell" }
+$rdpText | Set-Content -Path $rdp -Encoding ASCII
 
 Write-Host "[up] connecting $User over $RdpHost ..."
 Start-Process mstsc -ArgumentList "`"$rdp`"" | Out-Null
@@ -84,6 +94,21 @@ while ((Get-Date) -lt $deadline) {
     $s = Get-UserSession $User
     if ($s -and $s.State -eq 'Active') {
         Write-Host "[up] $User Active in session $($s.Id)."
+        if ($Hide) {
+            # Move the mstsc window OFF-SCREEN (not minimized). Minimizing makes
+            # the RDP session drop its display surface, which breaks Apollo's
+            # capture ("No displays found"). Keeping the window "shown" but at
+            # off-screen coordinates keeps the session rendering while hiding it
+            # from the console user. Experimental: if the display still drops,
+            # run without -Hide (the window stays visible, which always works).
+            try {
+                Add-Type -Namespace SD -Name Win -MemberDefinition '[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool SetWindowPos(System.IntPtr h, System.IntPtr after, int x, int y, int cx, int cy, uint flags);' -ErrorAction SilentlyContinue
+                Start-Sleep -Milliseconds 800
+                $w = Get-Process mstsc -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+                # SWP_NOSIZE(0x1)|SWP_NOZORDER(0x4)|SWP_NOACTIVATE(0x10) = 0x15
+                if ($w) { [SD.Win]::SetWindowPos($w.MainWindowHandle, [IntPtr]::Zero, -32000, -32000, 0, 0, 0x15) | Out-Null; Write-Host '[up] mstsc window moved off-screen.' }
+            } catch { }
+        }
         exit 0
     }
 }
