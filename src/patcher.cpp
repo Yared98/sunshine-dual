@@ -139,6 +139,10 @@ const std::vector<PatchSpec>& patch_specs() {
 Result enable_multisession(bool apply) {
     Result r;
 
+    // Elevated admin tokens hold SeDebugPrivilege but with it disabled; enable it
+    // or OpenProcess on the TermService svchost fails with GLE=5.
+    proc::enable_debug_privilege();
+
     DWORD pid = proc::find_service_pid(L"TermService");
     if (pid == 0) {
         r.message = "TermService PID not found (service stopped?)";
@@ -235,6 +239,8 @@ Result scan_image_file(const std::wstring& dll_path) {
 
 bool revert(const Result& r) {
     if (r.rollback.empty()) return false;
+
+    proc::enable_debug_privilege();
 
     DWORD pid = proc::find_service_pid(L"TermService");
     if (pid == 0) return false;

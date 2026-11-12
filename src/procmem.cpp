@@ -37,6 +37,32 @@ struct HandleCloser {
 
 } // namespace
 
+bool enable_debug_privilege() {
+    HANDLE token_raw = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(),
+                          TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token_raw)) {
+        return false;
+    }
+    HandleCloser token(token_raw);
+
+    LUID luid{};
+    if (!LookupPrivilegeValueW(nullptr, L"SeDebugPrivilege", &luid)) {
+        return false;
+    }
+
+    TOKEN_PRIVILEGES tp{};
+    tp.PrivilegeCount = 1;
+    tp.Privileges[0].Luid = luid;
+    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+    if (!AdjustTokenPrivileges(token.handle, FALSE, &tp, sizeof(tp), nullptr, nullptr)) {
+        return false;
+    }
+    // AdjustTokenPrivileges succeeds even if it could not assign the privilege
+    // (e.g. not held by the token); GetLastError reports that case.
+    return GetLastError() == ERROR_SUCCESS;
+}
+
 DWORD find_service_pid(const wchar_t* service_name) {
     if (!service_name) {
         return 0;

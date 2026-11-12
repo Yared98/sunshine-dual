@@ -15,6 +15,13 @@ struct ModuleRegion {
     size_t    size = 0;  // size of the module image, in bytes
 };
 
+// Enable SeDebugPrivilege in the current process token. An elevated admin token
+// *holds* this privilege but it is DISABLED by default; without it, OpenProcess
+// on a service svchost (e.g. the one hosting TermService) fails with
+// ERROR_ACCESS_DENIED (GLE=5) even when running elevated. Returns true if the
+// privilege is enabled on return. Safe to call repeatedly.
+bool enable_debug_privilege();
+
 // PID of the svchost.exe instance that hosts the given service
 // (e.g. L"TermService"). Returns 0 if the service or its host is not found.
 DWORD find_service_pid(const wchar_t* service_name);
