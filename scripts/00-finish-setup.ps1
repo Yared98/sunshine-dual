@@ -34,16 +34,33 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 $exe      = Join-Path $repoRoot 'build-win\sunshine_dual.exe'
 
 try {
-    Write-Host "`n==== 1/4  swap Sunshine -> Manual ===="
-    & (Join-Path $PSScriptRoot '01-swap-sunshine-to-apollo.ps1')
-
-    Write-Host "`n==== 2/4  install Apollo ===="
+    # Install Apollo FIRST, before touching Sunshine: if the Apollo wizard is
+    # cancelled, the existing Sunshine stack is left running and untouched.
+    Write-Host "`n==== 1/5  install Apollo ===="
     & (Join-Path $PSScriptRoot '02-install-apollo.ps1')
 
-    Write-Host "`n==== 3/4  register boot patch task ===="
+    $apolloSvc = Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'Apollo' }
+    if (-not $apolloSvc) {
+        Write-Host "`nApollo service not detected — the installer may have been cancelled."
+        Write-Host "Leaving Sunshine untouched. Re-run after completing the Apollo install."
+        return
+    }
+
+    Write-Host "`n==== 2/5  swap Sunshine -> Manual ===="
+    & (Join-Path $PSScriptRoot '01-swap-sunshine-to-apollo.ps1')
+
+    Write-Host "`n==== 3/5  start Apollo service ===="
+    try {
+        Start-Service -Name $apolloSvc.Name -ErrorAction Stop
+        Write-Host "[apollo] started service $($apolloSvc.Name)."
+    } catch {
+        Write-Host "[apollo] could not start $($apolloSvc.Name): $($_.Exception.Message)"
+    }
+
+    Write-Host "`n==== 4/5  register boot patch task ===="
     & (Join-Path $PSScriptRoot '03-register-boot-patch.ps1')
 
-    Write-Host "`n==== 4/4  apply patch to the running TermService now ===="
+    Write-Host "`n==== 5/5  apply patch to the running TermService now ===="
     if (Test-Path $exe) {
         & $exe patch
         Write-Host "apply exit=$LASTEXITCODE"
