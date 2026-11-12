@@ -43,7 +43,11 @@ if (WIN32 AND SD_BUILD_WIN32)
     add_executable(sunshine_dual src/main.cpp)
     target_link_libraries(sunshine_dual PRIVATE sd_patch sd_session)
     # MinGW needs -municode so wmain() is used as the entry point.
+    # Link the MinGW runtime statically so the exe is self-contained: it must run
+    # as SYSTEM (boot task) and in clean shells with no MinGW DLLs on PATH.
+    # Without this it fails to load with 0xC0000135 (DLL not found) /
+    # 0xC0000139 (entry point not found).
     target_compile_options(sunshine_dual PRIVATE -municode)
-    target_link_options(sunshine_dual PRIVATE -municode)
+    target_link_options(sunshine_dual PRIVATE -municode -static -static-libgcc -static-libstdc++)
   endif()
 endif()
