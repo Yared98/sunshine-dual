@@ -27,8 +27,8 @@ if (-not $isAdmin) {
 }
 
 $logDir = 'C:\ProgramData\sunshine-dual'
-New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-Start-Transcript -Path (Join-Path $logDir 'finish-setup.log') -Append | Out-Null
+try { New-Item -ItemType Directory -Force -Path $logDir | Out-Null } catch { Write-Host "(log dir: $($_.Exception.Message))" }
+try { Start-Transcript -Path (Join-Path $logDir 'finish-setup.log') -Append | Out-Null } catch { Write-Host "(transcript off: $($_.Exception.Message))" }
 
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $exe      = Join-Path $repoRoot 'build-win\sunshine_dual.exe'
@@ -74,7 +74,7 @@ try {
     Write-Host "  - See scripts/README.md for the SwitchGamer session wiring."
 }
 finally {
-    Stop-Transcript | Out-Null
+    try { Stop-Transcript | Out-Null } catch { }
 }
 Write-Host "`nPress Enter to close..."
 [void][System.Console]::ReadLine()
