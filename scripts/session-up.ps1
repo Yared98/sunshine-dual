@@ -85,6 +85,16 @@ audiomode:i:2
 if ($Shell) { $rdpText += "`r`nalternate shell:s:$Shell" }
 $rdpText | Set-Content -Path $rdp -Encoding ASCII
 
+# If a signing cert was set up (scripts/sign-rdp.ps1), sign the .rdp so mstsc
+# trusts it and skips the "unknown publisher" warning.
+$thumbFile = 'C:\Users\Public\apollo-s2\rdp-sign.thumb'
+if (Test-Path $thumbFile) {
+    $thumb = (Get-Content $thumbFile -Raw).Trim()
+    if ($thumb) {
+        & "$env:SystemRoot\System32\rdpsign.exe" /sha256 $thumb "$rdp" 2>&1 | Out-Null
+    }
+}
+
 Write-Host "[up] connecting $User over $RdpHost ..."
 Start-Process mstsc -ArgumentList "`"$rdp`"" | Out-Null
 
