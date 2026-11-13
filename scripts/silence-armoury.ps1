@@ -42,8 +42,8 @@ foreach ($n in $names) {
         }
     }
     if ($changed) {
-        try { Set-ScheduledTask -TaskName $n -Trigger $t.Triggers -ErrorAction Stop | Out-Null
-              Write-Host "[armoury] scoped '$n' logon trigger to $ConsoleUser." }
+        try { Set-ScheduledTask -TaskName $t.TaskName -TaskPath $t.TaskPath -Trigger $t.Triggers -ErrorAction Stop | Out-Null
+              Write-Host "[armoury] scoped '$($t.TaskPath)$($t.TaskName)' logon trigger to $ConsoleUser." }
         catch { Write-Host "[armoury] FAILED '$n': $($_.Exception.Message)" }
     } else {
         Write-Host "[armoury] '$n': no any-user logon trigger to change."
