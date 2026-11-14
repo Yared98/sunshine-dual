@@ -40,9 +40,21 @@ function Get-UserSession([string]$u) {
 }
 
 # Already Active?
+function Start-LeakMute {
+    # Mute the RDP audio leak (mstsc) on the console while the session lives.
+    $muteScript = Join-Path $PSScriptRoot 'mute-leak.ps1'
+    if (Test-Path $muteScript) {
+        Start-Process powershell -WindowStyle Hidden -ArgumentList @(
+            '-NoProfile','-ExecutionPolicy','Bypass','-File',"`"$muteScript`"",'-Loop'
+        ) | Out-Null
+        Write-Host '[up] leak-mute iniciado (mstsc silenciado enquanto a sessao durar).'
+    }
+}
+
 $s = Get-UserSession $User
 if ($s -and $s.State -eq 'Active') {
     Write-Host "[up] $User already Active in session $($s.Id)."
+    Start-LeakMute
     exit 0
 }
 
@@ -80,7 +92,7 @@ redirectposdevices:i:0
 redirectwebauthn:i:0
 devicestoredirect:s:
 drivestoredirect:s:
-audiomode:i:2
+audiomode:i:0
 "@
 if ($Shell) { $rdpText += "`r`nalternate shell:s:$Shell" }
 $rdpText | Set-Content -Path $rdp -Encoding ASCII
@@ -104,6 +116,7 @@ while ((Get-Date) -lt $deadline) {
     $s = Get-UserSession $User
     if ($s -and $s.State -eq 'Active') {
         Write-Host "[up] $User Active in session $($s.Id)."
+        Start-LeakMute
         if ($Hide) {
             # Move the mstsc window OFF-SCREEN (not minimized). Minimizing makes
             # the RDP session drop its display surface, which breaks Apollo's
