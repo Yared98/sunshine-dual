@@ -1,7 +1,7 @@
 # sunshine-dual — Plano de implementação
 
 ## Objetivo
-Permitir que um segundo usuário (ex.: filho via Moonlight em um portátil) jogue
+Permitir que um segundo usuário (ex.: via Moonlight em um portátil) jogue
 com stream do host **enquanto o host segue em uso na tela física**, com foco de
 teclado/mouse/gamepad desacoplado. Apollo cobre display virtual, captura, NVENC
 e isolamento de gamepad. Este repo entrega as duas peças que faltam:

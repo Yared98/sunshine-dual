@@ -1,0 +1,32 @@
+<#
+    config.local.ps1.example -- copy this to  config.local.ps1  (same folder) and
+    edit to match your machine. config.local.ps1 is git-ignored, so your personal
+    values never get committed.
+
+    You only need to set the ones that differ from the defaults in config.ps1.
+    Anything you leave commented falls back to the default (or an SD_* env var).
+#>
+
+# Name of the dedicated streaming user (the isolated second session).
+# $SD_User = 'SwitchGamer'
+
+# Your main/console Windows user (default: whoever runs the scripts).
+# $SD_ConsoleUser = 'YourWindowsUser'
+
+# Name shown to Moonlight clients (default: this PC's hostname).
+# $SD_HostName = 'MyGamingPC'
+
+# Where Apollo is installed, and its service name.
+# $SD_ApolloDir = 'C:\Program Files\Apollo'
+# $SD_Service   = 'ApolloService'
+
+# Config/state folder for the second (streaming-user) Apollo instance.
+# $SD_InstanceDir = 'C:\Users\Public\apollo-s2'
+
+# RDP loopback host for the headless second session.
+# $SD_LoopbackHost = '127.0.0.2'
+
+# Headless framebuffer resolution and Apollo base port.
+# $SD_Width  = 1280
+# $SD_Height = 720
+# $SD_Port   = 47989

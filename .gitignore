@@ -11,3 +11,6 @@ CMakeUserPresets.json
 *.pdb
 *.ilk
 *.log
+
+# Per-machine script config (holds your user/paths/host); never commit it.
+scripts/config.local.ps1

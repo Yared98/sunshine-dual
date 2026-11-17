@@ -5,7 +5,7 @@
 
     These tasks trigger "at logon of ANY user" with Highest run level. This
     scopes their logon trigger to the console user only (default: the current
-    console user, e.g. Yared), so they still run for you but not for SwitchGamer.
+    console user), so they still run for you but not for the streaming user.
     Reversible: set the trigger UserId back to empty in Task Scheduler.
 #>
 param(
@@ -13,6 +13,7 @@ param(
     [switch]$Elevated
 )
 $ErrorActionPreference = 'Continue'
+. (Join-Path $PSScriptRoot 'config.ps1')
 
 $isAdmin = ([Security.Principal.WindowsPrincipal] `
     [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -26,7 +27,7 @@ if (-not $isAdmin) {
 
 if (-not $ConsoleUser) {
     $ConsoleUser = (Get-CimInstance Win32_ComputerSystem).UserName
-    if (-not $ConsoleUser -or $ConsoleUser -match 'SwitchGamer') { $ConsoleUser = "$env:COMPUTERNAME\Yared" }
+    if (-not $ConsoleUser -or $ConsoleUser -match [regex]::Escape($SD_User)) { $ConsoleUser = "$env:COMPUTERNAME\$SD_ConsoleUser" }
 }
 Write-Host "[armoury] scoping logon tasks to: $ConsoleUser"
 

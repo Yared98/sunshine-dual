@@ -6,7 +6,7 @@
     session HAS an audio device to capture), that audio is also sent to the
     mstsc client on the console and plays on the host user's speakers. This
     mutes mstsc per-app (per-user, no admin) so the host user does not hear the
-    son's game. The capture inside the SwitchGamer session is unaffected.
+    streaming user's game. The capture inside the SwitchGamer session is unaffected.
 
     The mstsc audio session only exists while audio is actually playing, so a
     one-shot mute right after connect may find nothing. Run with -Loop to poll
@@ -72,8 +72,9 @@ namespace LeakMute {
 Add-Type -TypeDefinition $code -Language CSharp -ErrorAction SilentlyContinue
 $target = -not $Unmute
 
+. (Join-Path $PSScriptRoot 'config.ps1')
 function Test-SwitchSession {
-    $out = qwinsta 2>$null | Select-String 'SwitchGamer'
+    $out = qwinsta 2>$null | Select-String $SD_User
     return [bool]($out -and ($out.ToString() -match '\s\d+\s+(Active|Disc|Disconnected)'))
 }
 

@@ -44,6 +44,32 @@ cmake -S . -B build --preset ... -DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsys
 cmake --build build
 ```
 
+## Scripts & configuration
+
+The one-click `.cmd` / `.ps1` helpers in [`scripts/`](scripts/) drive the setup:
+create the dedicated user, swap Sunshine for Apollo, bring the headless second
+session up/down, enforce single-port session priority, enable the virtual
+display, and so on. They self-elevate (one UAC) where they need admin.
+
+All machine-specific values (the streaming user name, your console user, the
+host name shown to Moonlight, the Apollo install dir and service, the
+second-instance config dir, ports) live in one place —
+[`scripts/config.ps1`](scripts/config.ps1) — so nothing is hard-coded inside the
+scripts. Sensible defaults are baked in (the streaming user defaults to
+`SwitchGamer`, the console user and host name default to the current machine's),
+so it works out of the box.
+
+To override any value for your machine, copy the example and edit it:
+
+```powershell
+copy scripts\config.local.ps1.example scripts\config.local.ps1
+# then edit scripts\config.local.ps1 — e.g. $SD_User = 'MyStreamUser'
+```
+
+`config.local.ps1` is git-ignored, so your personal paths/user/host never get
+committed. You can also set the values through `SD_*` environment variables
+(see `config.ps1` for the names).
+
 ## Legal
 
 Enabling concurrent RDP sessions on a Windows client SKU is a licensing

@@ -12,6 +12,7 @@
     stores. Reversible: delete the cert from certmgr.msc and the .thumb file.
 #>
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'config.ps1')
 
 $subject = 'CN=sunshine-dual RDP loopback'
 $cert = Get-ChildItem Cert:\CurrentUser\My -ErrorAction SilentlyContinue |
@@ -33,9 +34,10 @@ Import-Certificate -FilePath $tmp -CertStoreLocation Cert:\CurrentUser\TrustedPu
 Remove-Item $tmp -Force -ErrorAction SilentlyContinue
 Write-Host "[sign] trusted the cert (CurrentUser Root + TrustedPublisher)."
 
-New-Item -ItemType Directory -Force -Path 'C:\Users\Public\apollo-s2' | Out-Null
-$cert.Thumbprint | Set-Content 'C:\Users\Public\apollo-s2\rdp-sign.thumb' -NoNewline
-Write-Host "[sign] saved thumbprint to C:\Users\Public\apollo-s2\rdp-sign.thumb"
+$thumbFile = Join-Path $SD_InstanceDir 'rdp-sign.thumb'
+New-Item -ItemType Directory -Force -Path $SD_InstanceDir | Out-Null
+$cert.Thumbprint | Set-Content $thumbFile -NoNewline
+Write-Host "[sign] saved thumbprint to $thumbFile"
 Write-Host "       session-up.ps1 will sign its .rdp with it from now on."
 Write-Host "`nPress Enter to close..."
 [void][System.Console]::ReadLine()

@@ -68,7 +68,7 @@ try {
         Write-Host "WARNING: $exe not found -- build first, then rerun."
     }
 
-    Write-Host "`nDone. Next (manual, needs your son's device):"
+    Write-Host "`nDone. Next (manual, needs a client device):"
     Write-Host "  - Open Apollo's web UI at https://localhost:47990 and set a virtual"
     Write-Host "    display + NVENC; pair Moonlight from the handheld."
     Write-Host "  - See scripts/README.md for the SwitchGamer session wiring."

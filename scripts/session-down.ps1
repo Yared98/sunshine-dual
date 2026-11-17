@@ -3,8 +3,10 @@
     Logs the SwitchGamer session off (closes its apps). Run as the console user
     or elevated. No-op if there is no such session.
 #>
-param([string]$User = 'SwitchGamer')
+param([string]$User)
 $ErrorActionPreference = 'Continue'
+. (Join-Path $PSScriptRoot 'config.ps1')
+if (-not $User) { $User = $SD_User }
 
 function Get-UserSession([string]$u) {
     $out = qwinsta 2>$null

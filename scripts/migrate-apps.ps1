@@ -21,8 +21,9 @@ if (-not $isAdmin) {
     return
 }
 
+. (Join-Path $PSScriptRoot 'config.ps1')
 $sun = 'C:\Program Files\Sunshine\config\apps.json'
-$apo = 'C:\Program Files\Apollo\config\apps.json'
+$apo = Join-Path $SD_ApolloDir 'config\apps.json'
 if (-not (Test-Path $sun)) { throw "Sunshine apps.json not found at $sun" }
 if (-not (Test-Path $apo)) { throw "Apollo apps.json not found at $apo" }
 
@@ -55,13 +56,13 @@ $json = $aJson | ConvertTo-Json -Depth 30
 Write-Host "merged $added app(s) into Apollo's apps.json."
 
 try {
-    Restart-Service -Name 'ApolloService' -ErrorAction Stop
-    Write-Host 'restarted ApolloService (new app list loaded).'
+    Restart-Service -Name $SD_Service -ErrorAction Stop
+    Write-Host "restarted $SD_Service (new app list loaded)."
 } catch {
-    Write-Host "could not restart ApolloService: $($_.Exception.Message) -- restart it manually."
+    Write-Host "could not restart $SD_Service`: $($_.Exception.Message) -- restart it manually."
 }
 
-Write-Host "`nNote: 'Zelda: Breath of the Wil' keeps your original (typo) name -- rename in Apollo's web UI if you like."
+Write-Host "`nNote: app names are copied as-is from Sunshine; rename any in Apollo's web UI if you like."
 Write-Host "Game commands reference paths like F:\Games\... and Steam; they must be reachable in the SwitchGamer session too."
 Write-Host "`nPress Enter to close..."
 [void][System.Console]::ReadLine()

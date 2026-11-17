@@ -16,16 +16,21 @@
     Returns exit 0 with the session id once the session is Active.
 #>
 param(
-    [string]$User       = 'SwitchGamer',
-    [string]$RdpHost    = '127.0.0.2',
+    [string]$User,                  # default: $SD_User (config.ps1)
+    [string]$RdpHost,               # default: $SD_LoopbackHost
     [string]$Password,
     [switch]$Hide,                  # move the mstsc window off-screen (default: leave it visible)
     [string]$Shell,                 # optional: run this program as the session shell
     [int]   $TimeoutSec = 45,
-    [int]   $Width      = 1280,
-    [int]   $Height     = 720
+    [int]   $Width,                 # default: $SD_Width
+    [int]   $Height                 # default: $SD_Height
 )
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'config.ps1')
+if (-not $User)    { $User    = $SD_User }
+if (-not $RdpHost) { $RdpHost = $SD_LoopbackHost }
+if (-not $Width)   { $Width   = $SD_Width }
+if (-not $Height)  { $Height  = $SD_Height }
 
 function Get-UserSession([string]$u) {
     $out = qwinsta 2>$null
@@ -99,7 +104,7 @@ $rdpText | Set-Content -Path $rdp -Encoding ASCII
 
 # If a signing cert was set up (scripts/sign-rdp.ps1), sign the .rdp so mstsc
 # trusts it and skips the "unknown publisher" warning.
-$thumbFile = 'C:\Users\Public\apollo-s2\rdp-sign.thumb'
+$thumbFile = Join-Path $SD_InstanceDir 'rdp-sign.thumb'
 if (Test-Path $thumbFile) {
     $thumb = (Get-Content $thumbFile -Raw).Trim()
     if ($thumb) {

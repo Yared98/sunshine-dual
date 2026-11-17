@@ -1,11 +1,24 @@
 # sunshine-dual — setup scripts
 
-These scripts finish the headless multiseat setup on this machine. They perform
-**elevated, non-destructive, reversible** changes. Nothing is deleted; no disk
-or data is destroyed. Each needs admin — `00-finish-setup.ps1` self-elevates so a
-single UAC covers everything.
+These helpers finish the headless multiseat setup on a Windows 11 host. They are
+**elevated, non-destructive and reversible** — nothing on disk or data is
+destroyed, and each self-elevates (one UAC) where it needs admin.
 
-## One-click
+## Configuration
+
+Every machine-specific value (the dedicated streaming user, your console user,
+the host name shown to Moonlight, the Apollo install dir and service, the
+second-instance config dir, ports) lives in **`config.ps1`**, which all the
+scripts read — nothing is hard-coded. Sensible defaults are baked in, so it runs
+as-is. To override for your machine:
+
+```powershell
+copy config.local.ps1.example config.local.ps1   # then edit it
+```
+
+`config.local.ps1` is git-ignored; you can also use `SD_*` environment variables.
+
+## 1. Install (one-click)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\00-finish-setup.ps1
@@ -14,89 +27,66 @@ powershell -ExecutionPolicy Bypass -File .\scripts\00-finish-setup.ps1
 Runs, in order:
 
 1. **`01-swap-sunshine-to-apollo.ps1`** — stops `SunshineService` and sets it to
-   *Manual* so Apollo can bind the host ports (47984/47989/48010/47990).
-   Reversible; Sunshine stays installed with its config and pairings intact.
-2. **`02-install-apollo.ps1`** — runs the Apollo v0.4.6 installer
-   (ClassicOldSong/Apollo). Apollo is used instead of stock Sunshine because it
-   bundles the **IddCx virtual display driver** + ViGEmBus, which the headless
+   *Manual* so Apollo can bind the host ports. Reversible; Sunshine stays
+   installed with its config/pairings intact.
+2. **`02-install-apollo.ps1`** — runs the Apollo installer (ClassicOldSong/Apollo).
+   Apollo bundles the **virtual display driver (SudoVDA)** + ViGEmBus the headless
    second session needs. The installer is **unsigned** — SmartScreen may warn
    ("More info" → "Run anyway"). Complete its wizard.
-3. **`03-register-boot-patch.ps1`** — copies `sunshine_dual.exe` +
-   `boot-apply-patch.ps1` to `C:\Program Files\sunshine-dual\`, registers the
-   **"sunshine-dual multiseat patch"** scheduled task (SYSTEM, at startup), and
-   validates it once. The in-memory termsrv patch does not survive a reboot, so
-   this re-applies it on every boot.
+3. **`03-register-boot-patch.ps1`** — installs `sunshine_dual.exe` +
+   `boot-apply-patch.ps1` and registers the **boot scheduled task** (SYSTEM, at
+   startup) that re-applies the in-memory termsrv patch on every boot.
 4. Applies the termsrv patch to the **running** TermService immediately.
 
-## Undo
+Undo with **`rollback.ps1`** (removes the boot task, restores `SunshineService`;
+the live patch clears on the next reboot).
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\rollback.ps1
-```
+Optional: **`migrate-apps.ps1`** copies your existing Sunshine app list into Apollo.
 
-Removes the boot task and restores `SunshineService` to Automatic (started).
-Leaves Apollo installed (uninstall via *Apps & features* if you want). The live
-patch clears on the next reboot.
+## 2. The second (streaming-user) session
 
-## Apollo configuration (manual, needs your son's device)
+The concurrent-session gate is the termsrv patch. A **second Apollo instance**
+runs inside the dedicated streaming user's session (its config lives in
+`$SD_InstanceDir`, default `C:\Users\Public\apollo-s2`).
 
-After install, open Apollo's web UI at **https://localhost:47990** and:
+- **`setup-session2.ps1`** (once) installs the instance launcher in the streaming
+  user's **Startup folder** (it must start from the login shell, not a scheduled
+  task, or the token can't launch games — `CreateProcess` error 5).
+- **`session-up.ps1`** logs the streaming user in over an RDP loopback so the
+  session exists and has a framebuffer to capture. `start-stream-session.cmd` is a
+  double-click wrapper. **`session-down.ps1`** logs it off.
+- **`sign-rdp.ps1`** (optional) signs the loopback `.rdp` with a trusted cert so
+  mstsc skips the "unknown publisher" warning.
 
-- **Audio/Video → Display**: enable the **virtual display** (headless). Set the
-  resolution/refresh you want to stream (e.g. 1920×1080 @ 120). This creates a
-  per-session virtual monitor so the SwitchGamer session has a framebuffer to
-  capture without a physical screen.
-- **Audio/Video → Encoder**: NVENC (the RTX 4070 does AV1/HEVC/H264).
-- **Pair** Moonlight from the handheld (enter the PIN Apollo shows).
+> **Do not minimize the Remote Desktop window while streaming.** An RDP session
+> suspends its display when the client window is minimized, which freezes Apollo's
+> capture. Leave it visible, or use `session-up.ps1 -Hide` (moves it off-screen
+> instead of minimizing, so it keeps rendering).
 
-## Wiring the SwitchGamer second session
+## 3. One host, taking turns (priority + shared port)
 
-The gate (concurrent Windows sessions) is handled by the termsrv patch. The
-`sunshine_dual` orchestrator drives the second session's lifecycle:
+So a single Moonlight host entry reaches whichever session is active:
 
-```
-sunshine_dual sessions            # list Terminal Services sessions (no admin)
-sunshine_dual up <apollo.exe>     # launch Apollo in the SwitchGamer session (SYSTEM)
-sunshine_dual down                # log the SwitchGamer session off (SYSTEM)
-```
+- **`instalar-revezamento.cmd`** → `apply-revezamento.ps1`: unifies the two Apollo
+  instances onto one port + one identity/pairing, and registers the priority
+  watcher **`apollo-priority.ps1`** (SYSTEM task). While the streaming user's RDP
+  is open, the console Apollo is stopped; when it closes, the streaming session is
+  logged off and the console Apollo comes back.
+- **`reverter-revezamento.ps1`** reverts to the two-port layout.
 
-### Option B — the son streams a truly separate Windows session (WORKING)
+## 4. Audio and display helpers
 
-A single Apollo streams the service/console session, and its "Virtual Display"
-only adds an isolated *screen* inside that session (keyboard/mouse still shared).
-For full isolation the son needs his own Windows session, so a **second Apollo
-instance runs inside the `SwitchGamer` session**:
-
-- `C:\Users\Public\apollo-s2\sunshine.conf` — its own config: `port = 48989`
-  (web UI 48990), own `file_apps` / `file_state` / `pkey` / `cert`.
-- `C:\Users\Public\apollo-s2\start-apollo.cmd` — `cd /d "C:\Program Files\Apollo"`
-  then starts `sunshine.exe` with that config. The working dir **must** be the
-  Apollo install dir or it can't find `assets\shaders` and crashes (0xC0000005).
-- **`setup-session2.ps1`** installs that launcher in the SwitchGamer **Startup
-  folder** (and removes any old scheduled task). It must start from the normal
-  login shell, not a scheduled task: a task-launched process gets a token that
-  can't spawn games (`CreateProcess` error 5).
-
-Flow: `setup-session2.ps1` (once) → `session-up.ps1` logs SwitchGamer in over the
-RDP loopback → Startup launches Apollo-2 → the son pairs **Artemis** (the Apollo
-client, not stock Moonlight) to `host:48989` and streams his own session while
-you keep working on the console.
-
-**Caveats learned the hard way:**
-
-- **Do not minimize or close the mstsc window** while streaming — an RDP session
-  drops its display surface when the client isn't shown, which breaks Apollo
-  capture (`No displays found` / `DuplicateOutput 0x80070005`). `session-up -Hide`
-  moves it off-screen instead (experimental); otherwise leave it visible.
-- NVENC only appears when the display is properly attached (window connected);
-  with the display dropped it falls back to software (libx264).
-- `SwitchGamer` is a fresh user: Steam login, emulator configs and saves are
-  per-user (the Steam login screen in his session is expected).
-- Gamepad isolation (ViGEmBus pads are system-global) still to verify with two
-  concurrent streams.
+- **`mute-leak.ps1`** — the RDP session captures "Remote Audio", which also plays
+  on the console; this mutes the mstsc audio per-app so the console user doesn't
+  hear it. `session-up.ps1` starts it automatically.
+- **`ligar-monitor-virtual.cmd`** → `ligar-monitor-virtual.ps1`: enables Apollo's
+  headless virtual display on the console instance, so it streams at the client's
+  resolution natively instead of scaling the physical desktop.
+- **`silence-armoury.ps1`** (optional, ASUS only) — scopes ASUS/Armoury Crate
+  logon tasks to the console user so they don't pop a UAC prompt in the streaming
+  session.
 
 ## Credentials
 
-The `SwitchGamer` password generated during setup is stored in the session
-scratchpad (`switchgamer.cred`), not in the repo. Rotate it with
-`Set-LocalUser` if you like.
+The streaming user's password generated during setup is kept outside the repo
+(session scratchpad), never committed. Rotate it with `Set-LocalUser` if you like.

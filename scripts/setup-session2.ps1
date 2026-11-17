@@ -24,8 +24,9 @@ if (-not $isAdmin) {
     return
 }
 
-$user    = 'SwitchGamer'
-$src     = 'C:\Users\Public\apollo-s2\start-apollo.cmd'
+. (Join-Path $PSScriptRoot 'config.ps1')
+$user    = $SD_User
+$src     = $SD_StartLauncher
 $startup = "C:\Users\$user\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup"
 
 # Remove the old scheduled task (its token can't launch games).
@@ -40,14 +41,14 @@ if (-not (Test-Path $src)) {
     New-Item -ItemType Directory -Force -Path (Split-Path $src) | Out-Null
     @"
 @echo off
-cd /d "C:\Program Files\Apollo"
-start "" "sunshine.exe" "C:\Users\Public\apollo-s2\sunshine.conf"
+cd /d "$SD_ApolloDir"
+start "" "sunshine.exe" "$SD_InstanceConf"
 "@ | Set-Content -Path $src -Encoding ASCII
     Write-Host "[s2] created launcher $src"
 }
-if (-not (Test-Path 'C:\Users\Public\apollo-s2\sunshine.conf')) {
-    Write-Host "[s2] WARNING: C:\Users\Public\apollo-s2\sunshine.conf not found."
-    Write-Host "     Create the second-instance config first (port 48989, own file_apps/state/cert)."
+if (-not (Test-Path $SD_InstanceConf)) {
+    Write-Host "[s2] WARNING: $SD_InstanceConf not found."
+    Write-Host "     Create the second-instance config first (own port/file_apps/state/cert)."
 }
 if (-not (Test-Path "C:\Users\$user")) { throw "profile C:\Users\$user not found (log $user in once first)" }
 New-Item -ItemType Directory -Force -Path $startup | Out-Null
